@@ -1,0 +1,124 @@
+## Time-stamp: <2015-01-08 15:24:10 rsf>
+## -*- coding: utf-8 -*-
+## This file is best viewed with GNU Emacs Org-mode: http://orgmode.org/
+
+* addgps.py
+
+This Python script adds GPS data to one or more files. The [[http://www.sno.phy.queensu.ca/~phil/exiftool/][exiftool]]
+program is used to read and write the GPS metadata.
+
+- *Target group*: users who are able to use command line tools and who
+  are using tags in file names.
+- Hosted on github: https://github.com/sesamemucho/addgps
+
+** Why
+
+My camera does not add GPS information to the photos and movies it
+records. This script makes it fairly easy and convenient to tag these
+files with locations.
+
+
+addgps.py works similarly to the [[https://github.com/novoid/filetag][filetag]] family of tools and fits well
+into their workflow. You pass one or more filenames as arguments, and
+addgps.py will prompt for a GPS location which it will add to all the
+files. This location may be given as `lat, lon' where lat and lon may
+have any format that exiftool accepts, or may be a shortcut, the
+definitions of which must (currently) be hardcoded into the script.
+
+You may like to add this tool to your image or file manager of
+choice. I added mine to [[http://geeqie.sourceforge.net/][geeqie]] which is my favorite image viewer on
+GNU/Linux.
+
+** Usage
+
+: addgps.py file1 file2 file3
+... will prompt for and add GPS information to file1, file2, and file3
+
+For a complete list of parameters, please try:
+: addgps.py --help
+
+** Bonus: integrating into Geeqie (or similar file browsers)
+
+I am using [[http://geeqie.sourceforge.net/][geeqie]] for browsing/presenting image files. For quickly
+adding locations to image file(s), I mapped this script to
+~g~. This way, I can go through my image files very quickly and do not
+have to worry about placing cursor in the rename dialog of geeqie.
+
+Using GNU/Linux, this is quite easy accomplished. The only thing that
+is not straight forward is the need for a wrapper script. The wrapper
+script does provide a shell window for entering the tags.
+
+~bob-addgps-wrapper-with-gnome-terminal.sh~ looks like:
+: #!/bin/sh
+: 
+: /usr/bin/gnome-terminal \
+:     --geometry=73x5+330+5  \
+:     --tab-with-profile=big \
+:     --hide-menubar \
+:     -x /home/bob/bin/addgps.py "${@}"
+: 
+: #end
+
+In ~$HOME/.config/geeqie/applications~ I wrote a desktop file such
+that geeqie shows the wrapper script as external editor to its
+image files:
+
+~$HOME/.config/geeqie/applications/addgps.desktop~ looks like:
+[Desktop Entry]
+Name=addgps
+GenericName=addgps
+Comment=
+Exec=/home/bob/bin/bob-addgps-wrapper-with-gnome-terminal.sh %F
+Icon=
+Terminal=true
+Type=Application
+Categories=Application;Graphics;
+hidden=false
+MimeType=image/*;video/*;image/mpo;image/thm
+Categories=X-Geeqie;
+
+In order to be able to use the keyboard shortcuts ~g~, you can define
+them in geeqie:
+1. Edit > Preferences > Preferences ... > Keyboard.
+2. Scroll to the bottom of the list.
+3. Double click in the ~KEY~-column of ~addgps~ and choose
+   your desired keyboard shortcut accordingly.
+
+I hope this method is as handy for you as it is for me :-)
+
+* Related tools and workflows
+
+This tool is part of a tool-set which I use to manage my digital files
+such as photographs. My work-flows are described in [[http://karl-voit.at/managing-digital-photographs/][this blog posting]]
+you might like to read.
+
+In short:
+
+For *tagging*, please refer to [[https://github.com/novoid/filetag][filetag]] and its documentation.
+
+See [[https://github.com/novoid/date2name][date2name]] for easily adding ISO *time-stamps or date-stamps* to
+files.
+
+For *easily naming and tagging* files within file browsers that allow
+integration of external tools, see [[https://github.com/novoid/appendfilename][appendfilename]] and
+[[https://github.com/novoid/filetag][filetag]].
+
+Moving to the archive folders is done using [[https://github.com/novoid/move2archive][move2archive]].
+
+Files containing an ISO time/date-stamp gets indexed by the
+filename-module of [[https://github.com/novoid/Memacs][Memacs]].
+
+* Contribute!
+
+I am looking for your ideas!
+
+If you want to contribute to this cool project, please fork and
+contribute!
+
+
+* Local Variables                                                  :noexport:
+# Local Variables:
+# mode: auto-fill
+# mode: flyspell
+# eval: (ispell-change-dictionary "en_US")
+# End:
