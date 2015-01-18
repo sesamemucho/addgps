@@ -52,6 +52,9 @@ script or function to keep the ugly in one place:
 :   --alias="tp=36.169800, -117.089200
 : #end
 
+When ~addgps~ prompts for a location, you can use completion on the
+aliases (press the TAB key).
+
 ** Bonus: integrating into Geeqie (or similar file browsers)
 
 I am using [[http://geeqie.sourceforge.net/][geeqie]] for browsing/presenting image files. For quickly

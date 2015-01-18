@@ -11,18 +11,54 @@ import time
 import subprocess
 import sys
 import logging
+import readline  # for raw_input() reading from stdin
 from optparse import OptionParser
 
-PROG_VERSION_NUMBER = "0.2.0"
-PROG_VERSION_DATE = "2015-01-17"
-vINVOCATION_TIME = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
+#TODO: Add some Windows readline love, and fail gracefully everywhere
+#      if readline is not installed.
 
-USAGE = "\n\
-    " + sys.argv[0] + " [<options>] <list of files>\n\
+PROG_VERSION_NUMBER = u"0.2.0"
+PROG_VERSION_DATE = u"2015-01-17"
+INVOCATION_TIME = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
+BETWEEN_COORD_SEPARATOR = u','
+
+USAGE = u"\n\
+    " + sys.argv[0] + u" [<options>] <list of files>\n\
 \n\
 This tool adds GPS latitude and longitude to files.\n\
 \n\
 "
+
+class SimpleCompleter(object):
+    ## happily stolen from http://pymotw.com/2/readline/
+
+    def __init__(self, options):
+        self.options = sorted(options)
+        return
+
+    def complete(self, text, state):
+        response = None
+        if state == 0:
+            # This is the first time for this text, so build a match list.
+            if text:
+                self.matches = [s
+                                for s in self.options
+                                if s and s.startswith(text)]
+                logging.debug('%s matches: %s', repr(text), self.matches)
+            else:
+                self.matches = self.options[:]
+                logging.debug('(empty input) matches: %s', self.matches)
+
+        # Return the state'th item from the match list,
+        # if we have that many.
+        try:
+            response = self.matches[state]
+        except IndexError:
+            response = None
+        logging.debug('complete(%s, %s) => %s',
+                      repr(text), state, repr(response))
+        return response
+
 
 def handle_logging(options):
     """Log handling and configuration"""
@@ -45,6 +81,18 @@ def error_exit(errorcode, text):
     logging.error(text)
 
     sys.exit(errorcode)
+
+def extract_coords_from_argument(argument):
+    """
+    @param argument: string containing coordinates
+    @param return: a list of unicode coords, possibly an alias
+    """
+
+    assert argument.__class__ == str or \
+        argument.__class__ == unicode
+
+    return argument.split(unicode(BETWEEN_COORD_SEPARATOR))
+
 
 def extract_filenames_from_argument(argument):
     """
@@ -151,6 +199,12 @@ def main(arglist):
 
     alias_dict = handle_aliases(options.alias)
 
+    # Register our completer function
+    readline.set_completer(SimpleCompleter(alias_dict.keys()).complete)
+
+    # Use the tab key for completion
+    readline.parse_and_bind('tab: complete')
+
     while True:
         print("                 ")
         print("    ,---------.  ")
@@ -159,14 +213,17 @@ def main(arglist):
         print("                 ")
 
         print("Please enter latitude and longitude, separated by a comma (','):     (abort with Ctrl-C)")
-        entered_coords = sys.stdin.readline().split(',')
-        if len(entered_coords) == 2:
-            lat = entered_coords[0]
-            lon = entered_coords[1]
+        #entered_coords = sys.stdin.readline().split(',')
+        entered_coords = raw_input('Coordinates: ').strip()
+        coords = extract_coords_from_argument(entered_coords)
+
+        if len(coords) == 2:
+            lat = coords[0]
+            lon = coords[1]
             break
-        elif len(entered_coords) == 1:
-            shortcut = entered_coords[0].strip()
-            logging.info("entered_coords[0] is \"%s\""%shortcut)
+        elif len(coords) == 1:
+            shortcut = coords[0].strip()
+            logging.info("coords[0] is \"%s\""%shortcut)
             if shortcut in alias_dict:
                 lat, lon = alias_dict[shortcut]
                 break
