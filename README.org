@@ -17,7 +17,6 @@ My camera does not add GPS information to the photos and movies it
 records. This script makes it fairly easy and convenient to tag these
 files with locations.
 
-
 addgps.py works similarly to the [[https://github.com/novoid/filetag][filetag]] family of tools and fits well
 into their workflow. You pass one or more filenames as arguments, and
 addgps.py will prompt for a GPS location which it will add to all the
@@ -37,6 +36,22 @@ GNU/Linux.
 For a complete list of parameters, please try:
 : addgps.py --help
 
+** Aliases
+
+addgps lets you alias commonly-used GPS coordinates as short text
+strings. To do this, you (currently) tell addgps about each alias on
+the command line. I would recommend wrapping addgps with a shell
+script or function to keep the ugly in one place:
+
+~addgps-with-aliases.sh~ looks like:
+: #/bin/sh
+:
+: /your/bin/directory/addgps.py \
+:   --alias="p=33.356593, -116.864816" \
+:   --alias="k=34.911055, -115.731136" \
+:   --alias="tp=36.169800, -117.089200
+: #end
+
 ** Bonus: integrating into Geeqie (or similar file browsers)
 
 I am using [[http://geeqie.sourceforge.net/][geeqie]] for browsing/presenting image files. For quickly
@@ -55,7 +70,7 @@ script does provide a shell window for entering the tags.
 :     --geometry=73x5+330+5  \
 :     --tab-with-profile=big \
 :     --hide-menubar \
-:     -x /home/bob/bin/addgps.py "${@}"
+:     -x /home/bob/bin/addgps-with-aliases.sh "${@}"
 : 
 : #end
 
@@ -88,9 +103,9 @@ I hope this method is as handy for you as it is for me :-)
 
 * Related tools and workflows
 
-This tool is part of a tool-set which I use to manage my digital files
-such as photographs. My work-flows are described in [[http://karl-voit.at/managing-digital-photographs/][this blog posting]]
-you might like to read.
+This tool fits into a tool-set that Karl Voit developed and which I
+am happily using to manage many of the artifacts of my digital life.
+Read all about the workflow in [[http://karl-voit.at/managing-digital-photographs/][Karl's blog posting]].
 
 In short:
 

@@ -5,6 +5,7 @@
 ## This script requires exiftool to be installed.
 
 from __future__ import print_function
+import re
 import os
 import time
 import subprocess
@@ -12,9 +13,9 @@ import sys
 import logging
 from optparse import OptionParser
 
-PROG_VERSION_NUMBER = "0.1"
-PROG_VERSION_DATE = "2014-12-31"
-INVOCATION_TIME = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
+PROG_VERSION_NUMBER = "0.2.0"
+PROG_VERSION_DATE = "2015-01-17"
+vINVOCATION_TIME = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime())
 
 USAGE = "\n\
     " + sys.argv[0] + " [<options>] <list of files>\n\
@@ -23,24 +24,7 @@ This tool adds GPS latitude and longitude to files.\n\
 \n\
 "
 
-parser = OptionParser(usage=USAGE)
-
-parser.add_option("-s", "--dryrun", dest="dryrun", action="store_true",
-                  help="enable dryrun mode: just simulate what would happen, do not modify files")
-
-parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
-                  help="enable verbose mode")
-
-parser.add_option("-q", "--quiet", dest="quiet", action="store_true",
-                  help="enable quiet mode")
-
-parser.add_option("--version", dest="version", action="store_true",
-                  help="display version and exit")
-
-(options, args) = parser.parse_args()
-
-
-def handle_logging():
+def handle_logging(options):
     """Log handling and configuration"""
 
     if options.verbose:
@@ -122,7 +106,38 @@ def handle_file(filename, lat, lon, dryrun):
     if not dryrun:
         retcode = subprocess.call(cmd)
 
-def main():
+def handle_aliases(alias_list):
+    logging.debug("alias_list is {}".format(alias_list))
+    ad = dict()
+    for a in alias_list:
+        m = re.search(r'^\s*(\w+)\s*=\s*([^\s,]+)\s*,\s*(\S+?)\s*$', a)
+        if m:
+            ad[m.group(1)]  = (m.group(2), m.group(3))
+        else:
+            raise ValueError("Unrecognized alias \"{}\"".format(a))
+
+    return ad
+
+def main(arglist):
+    parser = OptionParser(usage=USAGE)
+
+    parser.add_option("-a", "--alias", dest="alias", action='append', 
+                      help="define an alias for easier location entry. This argument may be given multiple times.")
+
+    parser.add_option("-s", "--dryrun", dest="dryrun", action="store_true",
+                      help="enable dryrun mode: just simulate what would happen, do not modify files.")
+
+    parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
+                      help="enable verbose mode")
+
+    parser.add_option("-q", "--quiet", dest="quiet", action="store_true",
+                      help="enable quiet mode")
+
+    parser.add_option("--version", dest="version", action="store_true",
+                      help="display version and exit")
+
+    (options, args) = parser.parse_args()
+
     if options.version:
         print(os.path.basename(sys.argv[0]) + " version " + PROG_VERSION_NUMBER + \
             " from " + PROG_VERSION_DATE)
@@ -132,32 +147,33 @@ def main():
         error_exit(1, "Options \"--verbose\" and \"--quiet\" found. " +
                    "This does not make any sense, you silly fool :-)")
 
-    handle_logging()
+    handle_logging(options)
 
-    print("                 ")
-    print("    ,---------.  ")
-    print("    |  ?     o | ")
-    print("    `---------'  ")
-    print("                 ")
+    alias_dict = handle_aliases(options.alias)
 
-    print("Please enter latitude and longitude, separated by a comma (','):     (abort with Ctrl-C)")
-    entered_coords = sys.stdin.readline().split(',')
-    if len(entered_coords) == 2:
-        lat = entered_coords[0]
-        lon = entered_coords[1]
-    elif len(entered_coords) == 1:
-        shortcut = entered_coords[0].strip()
-        logging.info("entered_coords[0] is \"%s\""%shortcut)
-        if shortcut == "here":
-            lat = "0.0"
-            lon = "0.0"
-        elif shortcut == "there":
-            lat = "51.524370"
-            lon = "117.025049"
+    while True:
+        print("                 ")
+        print("    ,---------.  ")
+        print("    |  ?     o | ")
+        print("    `---------'  ")
+        print("                 ")
+
+        print("Please enter latitude and longitude, separated by a comma (','):     (abort with Ctrl-C)")
+        entered_coords = sys.stdin.readline().split(',')
+        if len(entered_coords) == 2:
+            lat = entered_coords[0]
+            lon = entered_coords[1]
+            break
+        elif len(entered_coords) == 1:
+            shortcut = entered_coords[0].strip()
+            logging.info("entered_coords[0] is \"%s\""%shortcut)
+            if shortcut in alias_dict:
+                lat, lon = alias_dict[shortcut]
+                break
+            else:
+                print("\nError: shortcut must be one of: {}".format(", ".join(sorted(alias_dict.keys()))));
         else:
-            error_exit(5, "Shortcut must be one of: here there");
-    else:
-        error_exit(5, "Please enter latitude and longitude, separated by a comma");
+            print("\nError: please enter latitude and longitude, separated by a comma");
 
     files = extract_filenames_from_argument(args)
 
@@ -171,8 +187,9 @@ def main():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     try:
-        main()
+        main(sys.argv[1:])
     except KeyboardInterrupt:
 
         logging.info("Received KeyboardInterrupt")
