@@ -5,6 +5,7 @@
 ## This script requires exiftool to be installed.
 
 from __future__ import print_function
+
 import re
 import os
 import time
@@ -59,6 +60,45 @@ class SimpleCompleter(object):
                       repr(text), state, repr(response))
         return response
 
+def handle_arguments(arglist):
+    """Command line argument parsing"""
+    parser = OptionParser(usage=USAGE)
+
+    parser.add_option("-a", "--alias", dest="alias", action='append',
+                      default={},
+                      help="define an alias for easier location entry. This argument may be given multiple times.")
+
+    parser.add_option("-s", "--dryrun", dest="dryrun", action="store_true",
+                      help="enable dryrun mode: just simulate what would happen, do not modify files.")
+
+    parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
+                      help="enable verbose mode")
+
+    parser.add_option("-q", "--quiet", dest="quiet", action="store_true",
+                      help="enable quiet mode")
+
+    parser.add_option("--version", dest="version", action="store_true",
+                      help="display version and exit")
+
+    parser.add_option("-c", "--confirm", dest="confirm", action="store_true",
+                      help="Ask for confirmation before removing GPS info. Default is to not ask.")
+
+    parser.add_option("-r", "--remove", dest="action", action="store_const",
+                      const="remove", default="add",
+                      help="Remove GPS information from files.")
+
+    (options, args) = parser.parse_args()
+
+    if options.version:
+        print(os.path.basename(sys.argv[0]) + " version " + PROG_VERSION_NUMBER + \
+            " from " + PROG_VERSION_DATE)
+        sys.exit(0)
+
+    if options.verbose and options.quiet:
+        error_exit(1, "Options \"--verbose\" and \"--quiet\" found. " +
+                   "This does not make any sense, you silly fool :-)")
+
+    return (options, args)
 
 def handle_logging(options):
     """Log handling and configuration"""
@@ -103,8 +143,26 @@ def extract_filenames_from_argument(argument):
     ## FIXXME: works at my computer without need to convertion but add check later on
     return argument
 
+def bad_filename(filename, dryrun):
+    """
+    @param filename: string containing one file name
+    """
+    assert filename.__class__ == str or \
+        filename.__class__ == unicode
+    if dryrun:
+        assert dryrun.__class__ == bool
 
-def handle_file(filename, lat, lon, dryrun):
+    if os.path.isdir(filename):
+        logging.warning("Skipping directory \"%s\" because this tool only renames proceses file names." % filename)
+        return True
+    elif not os.path.isfile(filename):
+        logging.error("Skipping \"%s\" because this tool only processes existing file names." % filename)
+        return True
+
+    return False
+
+
+def add_gps_to_file(filename, lat, lon, dryrun):
     """
     @param filename: string containing one file name
     @param lat: Latitude, in exiftool-acceptable format
@@ -113,19 +171,9 @@ def handle_file(filename, lat, lon, dryrun):
     @param return: error value
     """
 
+    if bad_filename(filename, dryrun):
+        return
 #    import pdb; pdb.set_trace()
-
-    assert filename.__class__ == str or \
-        filename.__class__ == unicode
-    if dryrun:
-        assert dryrun.__class__ == bool
-
-    if os.path.isdir(filename):
-        logging.warning("Skipping directory \"%s\" because this tool only renames proceses file names." % filename)
-        return
-    elif not os.path.isfile(filename):
-        logging.error("Skipping \"%s\" because this tool only processes existing file names." % filename)
-        return
 
     lat = float(lat)
     if lat > 0:
@@ -152,7 +200,32 @@ def handle_file(filename, lat, lon, dryrun):
     logging.info("Processing command \"%s\"" % cmd)
     logging.info("exiftool -GPSLatitude=\"%s\" -GPSLatitudeRef=%s -GPSLongitude=\"%s\" -GPSLongitudeRef=%s" % (lat, latref, lon, lonref))
     if not dryrun:
-        retcode = subprocess.call(cmd)
+        retcode = subprocess.call(cmd, stdout=subprocess.PIPE)
+    else:
+        retcode = 0
+
+    return retcode
+
+def remove_gps_from_file(filename, dryrun):
+    """
+    @param filename: string containing one file name
+    @param dryrun: boolean which defines if files should be changed (False) or not (True)
+    @param return: error value
+    """
+    logging.debug("Removing gps info from \"{}\"".format(filename))
+    cmd = ["exiftool",
+           "-GPS*=",
+           filename]
+
+    logging.info(" ")
+    logging.info("Processing command \"%s\"" % cmd)
+
+    if not dryrun:
+        retcode = subprocess.call(cmd, stdout=subprocess.PIPE)
+    else:
+        retcode = 0
+
+    return retcode
 
 def handle_aliases(alias_list):
     logging.debug("alias_list is {}".format(alias_list))
@@ -166,85 +239,93 @@ def handle_aliases(alias_list):
 
     return ad
 
+def set_up_input_completion(input_list):
+    """Do what is necessary and possible to set up tab completion for input"""
+
+    # Register our completer function
+    readline.set_completer(SimpleCompleter(input_list).complete)
+
+    # Use the tab key for completion
+    readline.parse_and_bind('tab: complete')
+
 def main(arglist):
-    parser = OptionParser(usage=USAGE)
-
-    parser.add_option("-a", "--alias", dest="alias", action='append', 
-                      help="define an alias for easier location entry. This argument may be given multiple times.")
-
-    parser.add_option("-s", "--dryrun", dest="dryrun", action="store_true",
-                      help="enable dryrun mode: just simulate what would happen, do not modify files.")
-
-    parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
-                      help="enable verbose mode")
-
-    parser.add_option("-q", "--quiet", dest="quiet", action="store_true",
-                      help="enable quiet mode")
-
-    parser.add_option("--version", dest="version", action="store_true",
-                      help="display version and exit")
-
-    (options, args) = parser.parse_args()
-
-    if options.version:
-        print(os.path.basename(sys.argv[0]) + " version " + PROG_VERSION_NUMBER + \
-            " from " + PROG_VERSION_DATE)
-        sys.exit(0)
-
-    if options.verbose and options.quiet:
-        error_exit(1, "Options \"--verbose\" and \"--quiet\" found. " +
-                   "This does not make any sense, you silly fool :-)")
+    (options, args) = handle_arguments(arglist)
 
     handle_logging(options)
 
     alias_dict = handle_aliases(options.alias)
 
-    # Register our completer function
-    readline.set_completer(SimpleCompleter(alias_dict.keys()).complete)
+    set_up_input_completion(alias_dict.keys())
 
-    # Use the tab key for completion
-    readline.parse_and_bind('tab: complete')
+    files = extract_filenames_from_argument(args)
 
-    while True:
+    logging.debug("%s filenames found: [%s]" % (str(len(files)), '], ['.join(files)))
+
+    next_action = "query user"
+    while next_action == "query user":
         print("                 ")
         print("    ,---------.  ")
         print("    |  ?     o | ")
         print("    `---------'  ")
         print("                 ")
 
-        print("Please enter latitude and longitude, separated by a comma (','):     (abort with Ctrl-C)")
-        #entered_coords = sys.stdin.readline().split(',')
-        entered_coords = raw_input('Coordinates: ').strip()
-        coords = extract_coords_from_argument(entered_coords)
+        if options.action == "add":
+            print("Please enter latitude and longitude, separated by a comma (','):     (abort with Ctrl-C)")
+            #entered_coords = sys.stdin.readline().split(',')
+            entered_coords = raw_input('Coordinates: ').strip()
+            coords = extract_coords_from_argument(entered_coords)
 
-        if len(coords) == 2:
-            lat = coords[0]
-            lon = coords[1]
-            break
-        elif len(coords) == 1:
-            shortcut = coords[0].strip()
-            logging.info("coords[0] is \"%s\""%shortcut)
-            if shortcut in alias_dict:
-                lat, lon = alias_dict[shortcut]
-                break
+            if len(coords) == 2:
+                lat = coords[0]
+                lon = coords[1]
+                next_action = "OK"
+            elif len(coords) == 1:
+                shortcut = coords[0].strip()
+                logging.info("coords[0] is \"%s\""%shortcut)
+                if shortcut in alias_dict:
+                    lat, lon = alias_dict[shortcut]
+                    next_action="OK"
+                else:
+                    print("\nError: shortcut must be one of: {}".format(", ".join(sorted(alias_dict.keys()))));
+                    next_action="query user"
             else:
-                print("\nError: shortcut must be one of: {}".format(", ".join(sorted(alias_dict.keys()))));
+                print("\nError: please enter latitude and longitude, separated by a comma");
+                next_action = "query user"
+
+            if next_action == "OK":
+                logging.debug("Adding coordinates to files ...")
+                for filename in files:
+                    add_gps_to_file(filename, lat, lon, options.dryrun)
+
         else:
-            print("\nError: please enter latitude and longitude, separated by a comma");
+            next_action="OK"
 
-    files = extract_filenames_from_argument(args)
+            if options.confirm:
+                print("Ok to remove GPS coordinates from files? Y/n:     (abort with Ctrl-C)")
 
-    logging.debug("%s filenames found: [%s]" % (str(len(files)), '], ['.join(files)))
+                confirmation = sys.stdin.readline().strip().lower()
 
-    logging.debug("iterate over files ...")
-    for filename in files:
-        handle_file(filename, lat, lon, options.dryrun)
+                if confirmation in (u'', u'y', u'yes'):
+                    next_action = "OK"
+                elif confirmation in (u'n', u'no'):
+                    next_action = "no"
+                else:
+                    print("Unrecognized response \"{}\"".format(confirmation))
+                    next_action = "query user"
+
+            if next_action == "OK":
+                logging.debug("Removing coordinates from files ...")
+                for filename in files:
+                    remove_gps_from_file(filename, options.dryrun)
+
 
     logging.debug("successfully finished.")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    #logging.basicConfig(filename="addgps.log", level=logging.DEBUG)
+    #logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     try:
         main(sys.argv[1:])
     except KeyboardInterrupt:
