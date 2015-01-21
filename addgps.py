@@ -30,6 +30,39 @@ This tool adds GPS latitude and longitude to files.\n\
 \n\
 "
 
+class GPSLatitude(object):
+    """Parse and print GPS Latitude for exiftool.
+    Allowable input is:
+    [+-]n[.fffff][NS]
+    """
+    def __init__(self, value):
+       
+        m = re.search(r'^([+-]?\d+(?:\.\d*))([NS])?', value)
+        if m:
+            self.lat = float(m.group(1))
+            if self.lat >= 0:
+                if m.group(2) in [None, 'N']:
+                    self.latref = b'N'
+                else:
+                    self.latref = b'S'
+            else:
+                if m.group(2) is None:
+                    self.lat = -self.lat
+                    self.latref = b'S'
+                else:
+                    raise ValueError("Negative value cannot have N/S reference")
+        else:
+            raise ValueError("Unrecognized latitude value \"{}\"".format(value))
+
+        if self.lat > 90.0:
+            raise ValueError("Latitude value is out of range: {}".format(self.lat))
+
+    def value(self):
+        return self.lat
+
+    def ref(self):
+        return self.latref
+
 class SimpleCompleter(object):
     ## happily stolen from http://pymotw.com/2/readline/
 
@@ -276,6 +309,10 @@ def main(arglist):
             coords = extract_coords_from_argument(entered_coords)
 
             if len(coords) == 2:
+                lat = coords[0]
+                lon = coords[1]
+                next_action = "OK"
+            elif len(coords) == 3:
                 lat = coords[0]
                 lon = coords[1]
                 next_action = "OK"

@@ -63,6 +63,45 @@ class TestMethods(unittest.TestCase):
     def tearDown(self):
         pass
 
+class TestGPSValues(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def testGoodLatitude(self):
+        a = addgps.GPSLatitude("33.3")
+        self.assertAlmostEqual(a.value(), 33.3)
+        self.assertEqual(a.ref(), "N")
+
+        a = addgps.GPSLatitude("-33.3")
+        self.assertAlmostEqual(a.value(), 33.3)
+        self.assertEqual(a.ref(), "S")
+
+        a = addgps.GPSLatitude("33.3N")
+        self.assertAlmostEqual(a.value(), 33.3)
+        self.assertEqual(a.ref(), "N")
+
+        a = addgps.GPSLatitude("33.3S")
+        self.assertAlmostEqual(a.value(), 33.3)
+        self.assertEqual(a.ref(), "S")
+
+    def testBadGPSLat(self):
+        with self.assertRaisesRegexp(ValueError, r'Negative value cannot have .*'):
+            a = addgps.GPSLatitude("-44.2N")
+
+        with self.assertRaisesRegexp(ValueError, r'Negative value cannot have .*'):
+            a = addgps.GPSLatitude("-44.2S")
+
+        with self.assertRaisesRegexp(ValueError, r'Unrecognized latitude value .*'):
+            a = addgps.GPSLatitude("-cat")
+
+        with self.assertRaisesRegexp(ValueError, r'Latitude value is out of range: .*'):
+            a = addgps.GPSLatitude("93.4")
+
+
+
 class TestFiles(unittest.TestCase):
     tempdir = None
     datadir = os.path.join(here, 'data')
