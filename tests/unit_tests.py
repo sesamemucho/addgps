@@ -100,7 +100,35 @@ class TestGPSValues(unittest.TestCase):
         with self.assertRaisesRegexp(ValueError, r'Latitude value is out of range: .*'):
             a = addgps.GPSLatitude("93.4")
 
+    def testGoodLongitude(self):
+        a = addgps.GPSLongitude("33.3")
+        self.assertAlmostEqual(a.value(), 33.3)
+        self.assertEqual(a.ref(), "W")
 
+        a = addgps.GPSLongitude("-33.3")
+        self.assertAlmostEqual(a.value(), 33.3)
+        self.assertEqual(a.ref(), "E")
+
+        a = addgps.GPSLongitude("33.3W")
+        self.assertAlmostEqual(a.value(), 33.3)
+        self.assertEqual(a.ref(), "W")
+
+        a = addgps.GPSLongitude("33.3E")
+        self.assertAlmostEqual(a.value(), 33.3)
+        self.assertEqual(a.ref(), "E")
+
+    def testBadGPSLong(self):
+        with self.assertRaisesRegexp(ValueError, r'Negative value cannot have .*'):
+            a = addgps.GPSLongitude("-44.2W")
+
+        with self.assertRaisesRegexp(ValueError, r'Negative value cannot have .*'):
+            a = addgps.GPSLongitude("-44.2E")
+
+        with self.assertRaisesRegexp(ValueError, r'Unrecognized longitude value .*'):
+            a = addgps.GPSLongitude("-cat")
+
+        with self.assertRaisesRegexp(ValueError, r'Longitude value is out of range: .*'):
+            a = addgps.GPSLongitude("188.0")
 
 class TestFiles(unittest.TestCase):
     tempdir = None

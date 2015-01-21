@@ -35,7 +35,7 @@ class GPSxy(object):
     Allowable input is:
     [+-]n[.fffff][NS]
     """
-    def __init__(self, value, neg_ref, pos_ref, name):
+    def __init__(self, value, neg_ref, pos_ref, name, maxval):
         self.name = name.lower()
 
         m = re.search(r'^([+-]?\d+(?:\.\d*))([{}{}])?'.format(pos_ref, neg_ref), value)
@@ -56,7 +56,7 @@ class GPSxy(object):
         else:
             raise ValueError("Unrecognized {} value \"{}\"".format(self.name, value))
 
-        if self.val > 90.0:
+        if self.val > maxval:
             raise ValueError("{} value is out of range: {}".format(
                 self.name.title(), self.val))
 
@@ -72,7 +72,15 @@ class GPSLatitude(GPSxy):
     [+-]n[.fffff][NS]
     """
     def __init__(self, value):
-        super(GPSLatitude, self).__init__(value, 'S', 'N', 'latitude')
+        super(GPSLatitude, self).__init__(value, 'S', 'N', 'latitude', 90)
+
+class GPSLongitude(GPSxy):
+    """Parse and print GPS Longitude for exiftool.
+    Allowable input is:
+    [+-]n[.fffff][NS]
+    """
+    def __init__(self, value):
+        super(GPSLongitude, self).__init__(value, 'E', 'W', 'longitude', 180)
 
 class SimpleCompleter(object):
     ## happily stolen from http://pymotw.com/2/readline/
