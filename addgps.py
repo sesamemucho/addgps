@@ -30,38 +30,49 @@ This tool adds GPS latitude and longitude to files.\n\
 \n\
 "
 
-class GPSLatitude(object):
+class GPSxy(object):
+    """Parse and print GPS Latitude or Longitude for exiftool.
+    Allowable input is:
+    [+-]n[.fffff][NS]
+    """
+    def __init__(self, value, neg_ref, pos_ref, name):
+        self.name = name.lower()
+
+        m = re.search(r'^([+-]?\d+(?:\.\d*))([{}{}])?'.format(pos_ref, neg_ref), value)
+        if m:
+            self.val = float(m.group(1))
+            if self.val >= 0:
+                if m.group(2) in [None, pos_ref]:
+                    self.valref = pos_ref
+                else:
+                    self.valref = neg_ref
+            else:
+                if m.group(2) is None:
+                    self.val = -self.val
+                    self.valref = neg_ref
+                else:
+                    raise ValueError("Negative value cannot have {}/{} reference".format(
+                    pos_ref, neg_ref))
+        else:
+            raise ValueError("Unrecognized {} value \"{}\"".format(self.name, value))
+
+        if self.val > 90.0:
+            raise ValueError("{} value is out of range: {}".format(
+                self.name.title(), self.val))
+
+    def value(self):
+        return self.val
+
+    def ref(self):
+        return self.valref
+
+class GPSLatitude(GPSxy):
     """Parse and print GPS Latitude for exiftool.
     Allowable input is:
     [+-]n[.fffff][NS]
     """
     def __init__(self, value):
-       
-        m = re.search(r'^([+-]?\d+(?:\.\d*))([NS])?', value)
-        if m:
-            self.lat = float(m.group(1))
-            if self.lat >= 0:
-                if m.group(2) in [None, 'N']:
-                    self.latref = b'N'
-                else:
-                    self.latref = b'S'
-            else:
-                if m.group(2) is None:
-                    self.lat = -self.lat
-                    self.latref = b'S'
-                else:
-                    raise ValueError("Negative value cannot have N/S reference")
-        else:
-            raise ValueError("Unrecognized latitude value \"{}\"".format(value))
-
-        if self.lat > 90.0:
-            raise ValueError("Latitude value is out of range: {}".format(self.lat))
-
-    def value(self):
-        return self.lat
-
-    def ref(self):
-        return self.latref
+        super(GPSLatitude, self).__init__(value, 'S', 'N', 'latitude')
 
 class SimpleCompleter(object):
     ## happily stolen from http://pymotw.com/2/readline/
