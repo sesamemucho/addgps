@@ -30,7 +30,7 @@ This tool adds GPS latitude and longitude to files.\n\
 \n\
 "
 
-class GPSxy(object):
+class GPSxyz(object):
     """Parse and print GPS Latitude or Longitude for exiftool.
     Allowable input is:
     [+-]n[.fffff][NS]
@@ -66,7 +66,7 @@ class GPSxy(object):
     def ref(self):
         return self.valref
 
-class GPSLatitude(GPSxy):
+class GPSLatitude(GPSxyz):
     """Parse and print GPS Latitude for exiftool.
     Allowable input is:
     [+-]n[.fffff][NS]
@@ -74,13 +74,32 @@ class GPSLatitude(GPSxy):
     def __init__(self, value):
         super(GPSLatitude, self).__init__(value, 'S', 'N', 'latitude', 90)
 
-class GPSLongitude(GPSxy):
+class GPSLongitude(GPSxyz):
     """Parse and print GPS Longitude for exiftool.
     Allowable input is:
     [+-]n[.fffff][NS]
     """
     def __init__(self, value):
         super(GPSLongitude, self).__init__(value, 'E', 'W', 'longitude', 180)
+
+class GPSAltitude(GPSxyz):
+    def __init__(self, value):
+        m = re.search(r'^([+-]?\d+(?:\.\d*))(f)?', value)
+        self.name = 'altitude'
+        if m:
+            self.val = float(m.group(1))
+            if m.group(2) == 'f':
+                self.val *= 0.304 # feet to meters
+
+            if self.val < 0:
+                self.val = -self.val
+                self.valref = 'Below sea level'
+            else:
+                self.valref = 'Above sea level'
+
+        else:
+            raise ValueError("Unrecognized {} value \"{}\"".format(self.name, value))
+
 
 class SimpleCompleter(object):
     ## happily stolen from http://pymotw.com/2/readline/

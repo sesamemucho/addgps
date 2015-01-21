@@ -130,6 +130,22 @@ class TestGPSValues(unittest.TestCase):
         with self.assertRaisesRegexp(ValueError, r'Longitude value is out of range: .*'):
             a = addgps.GPSLongitude("188.0")
 
+    def testGoodAltitude(self):
+        a = addgps.GPSAltitude("33.3")
+        self.assertAlmostEqual(a.value(), 33.3)
+        self.assertEqual(a.ref(), "Above sea level")
+
+        a = addgps.GPSAltitude("-33.3")
+        self.assertAlmostEqual(a.value(), 33.3)
+        self.assertEqual(a.ref(), "Below sea level")
+
+        a = addgps.GPSAltitude("33.3f")
+        self.assertAlmostEqual(a.value(), 10.1232)
+        self.assertEqual(a.ref(), "Above sea level")
+
+    def testBadGPSLong(self):
+        with self.assertRaisesRegexp(ValueError, r'Unrecognized altitude value .*'):
+            a = addgps.GPSAltitude("-cat")
 class TestFiles(unittest.TestCase):
     tempdir = None
     datadir = os.path.join(here, 'data')
