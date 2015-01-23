@@ -38,7 +38,7 @@ class GPSxyz(object):
     def __init__(self, value, neg_ref, pos_ref, name, maxval):
         self.name = name.lower()
 
-        m = re.search(r'^([+-]?\d+(?:\.\d*))([{}{}])?'.format(pos_ref, neg_ref), value)
+        m = re.search(r'^([+-]?\d+(?:\.\d*)?)([{}{}])?'.format(pos_ref, neg_ref), value)
         if m:
             self.val = float(m.group(1))
             if self.val >= 0:
@@ -84,21 +84,25 @@ class GPSLongitude(GPSxyz):
 
 class GPSAltitude(GPSxyz):
     def __init__(self, value):
-        m = re.search(r'^([+-]?\d+(?:\.\d*))(f)?', value)
         self.name = 'altitude'
-        if m:
-            self.val = float(m.group(1))
-            if m.group(2) == 'f':
-                self.val *= 0.304 # feet to meters
-
-            if self.val < 0:
-                self.val = -self.val
-                self.valref = 'Below sea level'
-            else:
-                self.valref = 'Above sea level'
-
+        if value is None or value == "":
+            self.val = None
+            self.valref = ''
         else:
-            raise ValueError("Unrecognized {} value \"{}\"".format(self.name, value))
+            m = re.search(r'^([+-]?\d+(?:\.\d*)?)(f)?', value)
+            if m:
+                self.val = float(m.group(1))
+                if m.group(2) == 'f':
+                    self.val *= 0.304 # feet to meters
+
+                if self.val < 0:
+                    self.val = -self.val
+                    self.valref = 'Below sea level'
+                else:
+                    self.valref = 'Above sea level'
+
+            else:
+                raise ValueError("Unrecognized {} value \"{}\"".format(self.name, value))
 
 
 class SimpleCompleter(object):
@@ -202,7 +206,7 @@ def extract_coords_from_argument(argument):
     assert argument.__class__ == str or \
         argument.__class__ == unicode
 
-    return argument.split(unicode(BETWEEN_COORD_SEPARATOR))
+    return [a.strip() for a in argument.split(unicode(BETWEEN_COORD_SEPARATOR))]
 
 
 def extract_filenames_from_argument(argument):
@@ -302,9 +306,9 @@ def handle_aliases(alias_list):
     logging.debug("alias_list is {}".format(alias_list))
     ad = dict()
     for a in alias_list:
-        m = re.search(r'^\s*(\w+)\s*=\s*([^\s,]+)\s*,\s*(\S+?)\s*$', a)
+        m = re.search(r'^\s*(\w+)\s*=\s*([^\s,]+)\s*,\s*([^\s,]+)\s*,?\s*((?:\d+f?)?)\s*$', a)
         if m:
-            ad[m.group(1)]  = (m.group(2), m.group(3))
+            ad[m.group(1)]  = (m.group(2), m.group(3), m.group(4))
         else:
             raise ValueError("Unrecognized alias \"{}\"".format(a))
 
@@ -349,17 +353,19 @@ def main(arglist):
             if len(coords) == 2:
                 lat = coords[0]
                 lon = coords[1]
-                next_action = "OK"
+                alt = None
+                next_action = "use values"
             elif len(coords) == 3:
                 lat = coords[0]
                 lon = coords[1]
-                next_action = "OK"
+                alt = coords[2]
+                next_action = "use values"
             elif len(coords) == 1:
                 shortcut = coords[0].strip()
                 logging.info("coords[0] is \"%s\""%shortcut)
                 if shortcut in alias_dict:
-                    lat, lon = alias_dict[shortcut]
-                    next_action="OK"
+                    lat, lon, alt = alias_dict[shortcut]
+                    next_action="use values"
                 else:
                     print("\nError: shortcut must be one of: {}".format(", ".join(sorted(alias_dict.keys()))));
                     next_action="query user"
@@ -367,13 +373,21 @@ def main(arglist):
                 print("\nError: please enter latitude and longitude, separated by a comma");
                 next_action = "query user"
 
-            if next_action == "OK":
+            if next_action == "use values":
                 logging.debug("Adding coordinates to files ...")
-                for filename in files:
-                    add_gps_to_file(filename, lat, lon, options.dryrun)
+                try:
+                    latitude = GPSLatitude(lat)
+                    longitude = GPSLongitude(lon)
+                    altitude = GPSAltitude(alt)
+                    for filename in files:
+                        add_gps_to_file(filename, lat, lon, options.dryrun)
+                    next_action = "done"
+                except ValueError as e:
+                    print("Error: {}".format(e))
+                    next_action = "query user"
 
         else:
-            next_action="OK"
+            next_action="use values"
 
             if options.confirm:
                 print("Ok to remove GPS coordinates from files? Y/n:     (abort with Ctrl-C)")
@@ -381,26 +395,23 @@ def main(arglist):
                 confirmation = sys.stdin.readline().strip().lower()
 
                 if confirmation in (u'', u'y', u'yes'):
-                    next_action = "OK"
+                    next_action = "use values"
                 elif confirmation in (u'n', u'no'):
-                    next_action = "no"
+                    next_action = "done"
                 else:
                     print("Unrecognized response \"{}\"".format(confirmation))
                     next_action = "query user"
 
-            if next_action == "OK":
+            if next_action == "use values":
                 logging.debug("Removing coordinates from files ...")
                 for filename in files:
                     remove_gps_from_file(filename, options.dryrun)
-
+                    next_action = "done"
 
     logging.debug("successfully finished.")
 
 
 if __name__ == "__main__":
-    #logging.basicConfig(filename="addgps.log", level=logging.DEBUG)
-    #logging.basicConfig(level=logging.INFO)
-    logging.basicConfig(level=logging.DEBUG)
     try:
         main(sys.argv[1:])
     except KeyboardInterrupt:

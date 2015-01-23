@@ -30,27 +30,39 @@ class TestMethods(unittest.TestCase):
 
     def test_easy_alias(self):
         a = addgps.handle_aliases(("x=33.3, 44.4",))
-        self.assertEqual(a, {'x': ("33.3", "44.4")})
+        self.assertEqual(a, {'x': ("33.3", "44.4", "")})
 
     def test_neg_alias(self):
         a = addgps.handle_aliases(("x=-33.3, -44.4",))
-        self.assertEqual(a, {'x': ("-33.3", "-44.4")})
+        self.assertEqual(a, {'x': ("-33.3", "-44.4", "")})
 
     def test_alias_nospace(self):
         a = addgps.handle_aliases(("x=33.3,44.4",))
-        self.assertEqual(a, {'x': ("33.3", "44.4")})
+        self.assertEqual(a, {'x': ("33.3", "44.4", "")})
 
     def test_alias_morespace(self):
         a = addgps.handle_aliases((" x = 33.3 , 44.4 ",))
-        self.assertEqual(a, {'x': ("33.3", "44.4")})
+        self.assertEqual(a, {'x': ("33.3", "44.4", "")})
 
     def test_two_alias(self):
         a = addgps.handle_aliases(("x=33.3, 44.4","yy=66.6, 77.7"))
-        self.assertEqual(a, {'x': ("33.3", "44.4"), 'yy': ("66.6", "77.7")})
+        self.assertEqual(a, {'x': ("33.3", "44.4", ""), 'yy': ("66.6", "77.7", "")})
 
     def test_NE_alias(self):
         a = addgps.handle_aliases(("x=33.3N, 44.4E",))
-        self.assertEqual(a, {'x': ("33.3N", "44.4E")})
+        self.assertEqual(a, {'x': ("33.3N", "44.4E", "")})
+
+    def test_3d_alias(self):
+        a = addgps.handle_aliases(("x=33.3N, 44.4E, 2000",))
+        self.assertEqual(a, {'x': ("33.3N", "44.4E", "2000")})
+
+    def test_3d_alias_ft(self):
+        a = addgps.handle_aliases(("x=33.3N, 44.4E, 2000f",))
+        self.assertEqual(a, {'x': ("33.3N", "44.4E", "2000f")})
+
+    def test_bad_3d_alias_ft(self):
+        with self.assertRaisesRegexp(ValueError, r'Unrecognized alias .*'):
+            addgps.handle_aliases(("x=33.3N, 44.4E, 2000m",))
 
     def test_bad_short_alias(self):
         with self.assertRaisesRegexp(ValueError, r'Unrecognized alias .*'):
@@ -75,6 +87,10 @@ class TestGPSValues(unittest.TestCase):
         self.assertAlmostEqual(a.value(), 33.3)
         self.assertEqual(a.ref(), "N")
 
+        a = addgps.GPSLatitude("33")
+        self.assertAlmostEqual(a.value(), 33.0)
+        self.assertEqual(a.ref(), "N")
+
         a = addgps.GPSLatitude("-33.3")
         self.assertAlmostEqual(a.value(), 33.3)
         self.assertEqual(a.ref(), "S")
@@ -85,6 +101,14 @@ class TestGPSValues(unittest.TestCase):
 
         a = addgps.GPSLatitude("33.3S")
         self.assertAlmostEqual(a.value(), 33.3)
+        self.assertEqual(a.ref(), "S")
+
+        a = addgps.GPSLatitude("-38")
+        self.assertAlmostEqual(a.value(), 38.0)
+        self.assertEqual(a.ref(), "S")
+
+        a = addgps.GPSLatitude("38S")
+        self.assertAlmostEqual(a.value(), 38.0)
         self.assertEqual(a.ref(), "S")
 
     def testBadGPSLat(self):
@@ -105,6 +129,10 @@ class TestGPSValues(unittest.TestCase):
         self.assertAlmostEqual(a.value(), 33.3)
         self.assertEqual(a.ref(), "W")
 
+        a = addgps.GPSLongitude("33")
+        self.assertAlmostEqual(a.value(), 33.0)
+        self.assertEqual(a.ref(), "W")
+
         a = addgps.GPSLongitude("-33.3")
         self.assertAlmostEqual(a.value(), 33.3)
         self.assertEqual(a.ref(), "E")
@@ -115,6 +143,10 @@ class TestGPSValues(unittest.TestCase):
 
         a = addgps.GPSLongitude("33.3E")
         self.assertAlmostEqual(a.value(), 33.3)
+        self.assertEqual(a.ref(), "E")
+
+        a = addgps.GPSLongitude("42E")
+        self.assertAlmostEqual(a.value(), 42.0)
         self.assertEqual(a.ref(), "E")
 
     def testBadGPSLong(self):
@@ -135,6 +167,10 @@ class TestGPSValues(unittest.TestCase):
         self.assertAlmostEqual(a.value(), 33.3)
         self.assertEqual(a.ref(), "Above sea level")
 
+        a = addgps.GPSAltitude("99")
+        self.assertAlmostEqual(a.value(), 99.0)
+        self.assertEqual(a.ref(), "Above sea level")
+
         a = addgps.GPSAltitude("-33.3")
         self.assertAlmostEqual(a.value(), 33.3)
         self.assertEqual(a.ref(), "Below sea level")
@@ -143,9 +179,18 @@ class TestGPSValues(unittest.TestCase):
         self.assertAlmostEqual(a.value(), 10.1232)
         self.assertEqual(a.ref(), "Above sea level")
 
+        a = addgps.GPSAltitude("6800f")
+        self.assertAlmostEqual(a.value(), 2067.2)
+        self.assertEqual(a.ref(), "Above sea level")
+
+        a = addgps.GPSAltitude(None)
+        self.assertAlmostEqual(a.value(), None)
+        self.assertEqual(a.ref(), "")
+
     def testBadGPSLong(self):
         with self.assertRaisesRegexp(ValueError, r'Unrecognized altitude value .*'):
             a = addgps.GPSAltitude("-cat")
+
 class TestFiles(unittest.TestCase):
     tempdir = None
     datadir = os.path.join(here, 'data')
