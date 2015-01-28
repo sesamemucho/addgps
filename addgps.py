@@ -272,7 +272,7 @@ def add_gps_to_file(filename, lat, lon, alt, dryrun):
 
     logging.info(" ")
     logging.info("Processing command \"%s\"" % cmdlist)
-    #logging.info("exiftool -GPSLatitude=\"%s\" -GPSLatitudeRef=%s -GPSLongitude=\"%s\" -GPSLongitudeRef=%s" % (lat, latref, lon, lonref))
+
     if not dryrun:
         retcode = subprocess.call(cmd, stdout=subprocess.PIPE)
     else:
@@ -335,8 +335,8 @@ def main(arglist):
 
     logging.debug("%s filenames found: [%s]" % (str(len(files)), '], ['.join(files)))
 
-    next_action = "query user"
-    while next_action == "query user":
+    state = "query user"
+    while state == "query user":
         print("                 ")
         print("    ,---------.  ")
         print("    |  ?     o | ")
@@ -353,26 +353,26 @@ def main(arglist):
                 lat = coords[0]
                 lon = coords[1]
                 alt = None
-                next_action = "use values"
+                state = "use values"
             elif len(coords) == 3:
                 lat = coords[0]
                 lon = coords[1]
                 alt = coords[2]
-                next_action = "use values"
+                state = "use values"
             elif len(coords) == 1:
                 shortcut = coords[0].strip()
                 logging.info("coords[0] is \"%s\""%shortcut)
                 if shortcut in alias_dict:
                     lat, lon, alt = alias_dict[shortcut]
-                    next_action="use values"
+                    state="use values"
                 else:
                     print("\nError: shortcut must be one of: {}".format(", ".join(sorted(alias_dict.keys()))));
-                    next_action="query user"
+                    state="query user"
             else:
                 print("\nError: please enter latitude and longitude, separated by a comma");
-                next_action = "query user"
+                state = "query user"
 
-            if next_action == "use values":
+            if state == "use values":
                 logging.debug("Adding coordinates to files ...")
                 try:
                     latitude = GPSLatitude(lat)
@@ -380,13 +380,13 @@ def main(arglist):
                     altitude = GPSAltitude(alt)
                     for filename in files:
                         add_gps_to_file(filename, latitude, longitude, altitude, options.dryrun)
-                    next_action = "done"
+                    state = "done"
                 except ValueError as e:
                     print("Error: {}".format(e))
-                    next_action = "query user"
+                    state = "query user"
 
         else:
-            next_action="use values"
+            state="use values"
 
             if options.confirm:
                 print("Ok to remove GPS coordinates from files? Y/n:     (abort with Ctrl-C)")
@@ -394,18 +394,18 @@ def main(arglist):
                 confirmation = sys.stdin.readline().strip().lower()
 
                 if confirmation in (u'', u'y', u'yes'):
-                    next_action = "use values"
+                    state = "use values"
                 elif confirmation in (u'n', u'no'):
-                    next_action = "done"
+                    state = "done"
                 else:
                     print("Unrecognized response \"{}\"".format(confirmation))
-                    next_action = "query user"
+                    state = "query user"
 
-            if next_action == "use values":
+            if state == "use values":
                 logging.debug("Removing coordinates from files ...")
                 for filename in files:
                     remove_gps_from_file(filename, options.dryrun)
-                    next_action = "done"
+                    state = "done"
 
     logging.debug("successfully finished.")
 
