@@ -37,6 +37,7 @@ class GPSxyz(object):
     """
     def __init__(self, value, neg_ref, pos_ref, name, maxval):
         self.name = name.lower()
+        self.title = name.title()
 
         m = re.search(r'^([+-]?\d+(?:\.\d*)?)([{}{}])?'.format(pos_ref, neg_ref), value)
         if m:
@@ -58,13 +59,17 @@ class GPSxyz(object):
 
         if self.val > maxval:
             raise ValueError("{} value is out of range: {}".format(
-                self.name.title(), self.val))
+                self.title, self.val))
 
     def value(self):
         return self.val
 
     def ref(self):
         return self.valref
+
+    def arguments(self):
+        return ["-GPS{}=\"{}\"".format(self.title, self.value()),
+                "-GPS{}Ref=\"{}\"".format(self.title, self.ref())]
 
 class GPSLatitude(GPSxyz):
     """Parse and print GPS Latitude for exiftool.
@@ -85,6 +90,8 @@ class GPSLongitude(GPSxyz):
 class GPSAltitude(GPSxyz):
     def __init__(self, value):
         self.name = 'altitude'
+        self.title = 'Altitude'
+
         if value is None or value == "":
             self.val = None
             self.valref = ''
@@ -104,6 +111,12 @@ class GPSAltitude(GPSxyz):
             else:
                 raise ValueError("Unrecognized {} value \"{}\"".format(self.name, value))
 
+    def arguments(self):
+        if self.val is None:
+            return []
+        else:
+            return ["-GPS{}=\"{}\"".format(self.title, self.value()),
+                    "-GPS{}Ref=\"{}\"".format(self.title, self.ref())]
 
 class SimpleCompleter(object):
     ## happily stolen from http://pymotw.com/2/readline/
@@ -237,11 +250,12 @@ def bad_filename(filename, dryrun):
     return False
 
 
-def add_gps_to_file(filename, lat, lon, dryrun):
+def add_gps_to_file(filename, lat, lon, alt, dryrun):
     """
     @param filename: string containing one file name
     @param lat: Latitude, in exiftool-acceptable format
     @param lon: Longitude, in exiftool-acceptable format
+    @param alt: Altitude, in exiftool-acceptable format
     @param dryrun: boolean which defines if files should be changed (False) or not (True)
     @param return: error value
     """
@@ -250,30 +264,15 @@ def add_gps_to_file(filename, lat, lon, dryrun):
         return
 #    import pdb; pdb.set_trace()
 
-    lat = float(lat)
-    if lat > 0:
-        latref = b'N'
-    else:
-        lat = -lat
-        latref = b'S'
-
-    lon = float(lon)
-    if lon > 0:
-        lonref = b'E'
-    else:
-        lon = -lon
-        lonref = b'W'
-
-    cmd = ["exiftool",
-           "-GPSLatitude=\"%s\""%lat,
-           "-GPSLatitudeRef=%s"%latref,
-           "-GPSLongitude=\"%s\""%lon,
-           "-GPSLongitudeRef=%s"%lonref,
-           filename]
+    cmdlist = ["exiftool",]
+    cmdlist.extend(lat.arguments())
+    cmdlist.extend(lon.arguments())
+    cmdlist.extend(alt.arguments())
+    cmdlist.append(filename)
 
     logging.info(" ")
-    logging.info("Processing command \"%s\"" % cmd)
-    logging.info("exiftool -GPSLatitude=\"%s\" -GPSLatitudeRef=%s -GPSLongitude=\"%s\" -GPSLongitudeRef=%s" % (lat, latref, lon, lonref))
+    logging.info("Processing command \"%s\"" % cmdlist)
+    #logging.info("exiftool -GPSLatitude=\"%s\" -GPSLatitudeRef=%s -GPSLongitude=\"%s\" -GPSLongitudeRef=%s" % (lat, latref, lon, lonref))
     if not dryrun:
         retcode = subprocess.call(cmd, stdout=subprocess.PIPE)
     else:
@@ -380,7 +379,7 @@ def main(arglist):
                     longitude = GPSLongitude(lon)
                     altitude = GPSAltitude(alt)
                     for filename in files:
-                        add_gps_to_file(filename, lat, lon, options.dryrun)
+                        add_gps_to_file(filename, latitude, longitude, altitude, options.dryrun)
                     next_action = "done"
                 except ValueError as e:
                     print("Error: {}".format(e))
